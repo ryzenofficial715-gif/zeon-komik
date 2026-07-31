@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "api/komik.js", "use": "@vercel/node" },
+    { "src": "public/**", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "api/komik.js" },
+    { "src": "/about", "dest": "public/about.html" },
+    { "src": "/read", "dest": "public/read.html" },
+    { "src": "/search", "dest": "public/search.html" },
+    { "src": "/detail", "dest": "public/detail.html" },
+    { "src": "/bookmarks", "dest": "public/bookmarks.html" },
+    { "src": "/read.html", "status": 301, "headers": { "Location": "/read" } },
+    { "src": "/search.html", "status": 301, "headers": { "Location": "/search" } },
+    { "src": "/detail.html", "status": 301, "headers": { "Location": "/detail" } },
+    { "src": "/about.html", "status": 301, "headers": { "Location": "/about" } },
+    { "src": "/index.html", "status": 301, "headers": { "Location": "/" } },
+    { "src": "/(.*)", "dest": "public/index.html" }
+  ]
+}
