@@ -24,32 +24,56 @@ const CACHE_TIME = 600000;
 function getCache(k) { if (cache[k] && Date.now() - cache[k].time < CACHE_TIME) return cache[k].data; return null; }
 function setCache(k, d) { cache[k] = { time: Date.now(), data: d }; }
 
+function fixUrl(u) {
+    if (!u) return '';
+    if (u.startsWith('http')) return u;
+    if (u.startsWith('//')) return 'https:' + u;
+    if (u.startsWith('/')) return BASE + u;
+    return BASE + '/' + u;
+}
+
+// ========== HOME ==========
 app.get('/api/home', async (req, res) => {
     const c = getCache('home'); if (c) return res.json(c);
     try {
         const { data } = await axios.get(BASE, { headers: { 'User-Agent': UA }, timeout: 15000 });
         const $ = cheerio.load(data);
         const list = [];
-        $('a[href*="/komik/"]').each((i, el) => {
-            const href = $(el).attr('href');
-            const title = $(el).attr('title') || $(el).text().trim();
+
+        $('.listupd .animepost, .serieslist .animepost, .listupd a, .serieslist a').each((i, el) => {
+            const link = $(el).is('a') ? $(el) : $(el).find('a').first();
+            const href = link.attr('href');
             const img = $(el).find('img').first();
-            const src = img.attr('src') || img.attr('data-src') || img.attr('data-lazy') || img.attr('data-cfsrc') || '';
+            const src = img.attr('src') || img.attr('data-src') || img.attr('data-lazy') || '';
+            const title = img.attr('title') || img.attr('alt') || link.attr('title') || link.text().trim();
+
             if (href && title && href.includes('/komik/') && title.length > 2) {
                 const u = href.startsWith('http') ? href : BASE + href;
                 if (!list.find(k => k.url === u)) {
-                    let thumb = '';
-                    if (src) thumb = src.startsWith('http') ? src : (src.startsWith('//') ? 'https:' + src : (src.startsWith('/') ? '' : '/') + src);
-                    if (thumb && !thumb.startsWith('http')) thumb = BASE + thumb;
-                    list.push({ title: title.trim(), url: u, thumbnail: thumb });
+                    list.push({ title: title.trim(), url: u, thumbnail: fixUrl(src) });
                 }
             }
         });
+
+        if (list.length === 0) {
+            $('a[href*="/komik/"]').each((i, el) => {
+                const href = $(el).attr('href');
+                const title = $(el).attr('title') || $(el).find('img').attr('title') || $(el).text().trim();
+                const img = $(el).find('img[itemprop="image"], img').first();
+                const src = img.attr('src') || img.attr('data-src') || img.attr('data-lazy') || '';
+                if (href && title && href.includes('/komik/') && title.length > 2) {
+                    const u = href.startsWith('http') ? href : BASE + href;
+                    if (!list.find(k => k.url === u)) list.push({ title: title.trim(), url: u, thumbnail: fixUrl(src) });
+                }
+            });
+        }
+
         const r = { success: true, data: list.slice(0, 50) };
         setCache('home', r); res.json(r);
     } catch(e) { res.json({ success: false, error: e.message }); }
 });
 
+// ========== DETAIL ==========
 app.get('/api/detail', async (req, res) => {
     const { url } = req.query;
     if (!url) return res.json({ success: false });
@@ -59,25 +83,23 @@ app.get('/api/detail', async (req, res) => {
         const { data } = await axios.get(url, { headers: { 'User-Agent': UA }, timeout: 15000 });
         const $ = cheerio.load(data);
         const title = $('.entry-title').text().trim() || $('h1').first().text().trim() || 'Unknown';
-        const thumbEl = $('.thumb img').first() || $('.anmsb img').first() || $('img.wp-post-image').first();
-        const thumbnail = (thumbEl.attr('src') || '').replace(/^\/\//, 'https://');
-        const synopsis = ($('.entry-content, .sinopsis, .desc, .wd-full').first().text() || $('p').first().text() || '').trim().substring(0, 500);
+        const thumb = $('.thumb img[itemprop="image"], .thumb img, img.wp-post-image, img[itemprop="image"], .animepost img').first().attr('src') || '';
+        const synopsis = ($('.entry-content, .sinopsis, .desc').first().text() || '').trim().substring(0, 500);
         const chapters = [];
         $('.eps_lst a, .listeps a, a[href*="/ch/"], a[href*="/chapter/"]').each((i, el) => {
             const t = $(el).text().trim();
             const u = $(el).attr('href');
             if (t && u && t.length > 2) {
                 const fullUrl = u.startsWith('http') ? u : BASE + u;
-                if (!chapters.find(c => c.url === fullUrl)) {
-                    chapters.push({ title: t, url: fullUrl, date: '' });
-                }
+                if (!chapters.find(c => c.url === fullUrl)) chapters.push({ title: t, url: fullUrl, date: '' });
             }
         });
-        const r = { success: true, data: { title, thumbnail: thumbnail.startsWith('http') ? thumbnail : (thumbnail.startsWith('/') ? BASE + thumbnail : ''), synopsis, chapters: chapters.slice(0, 200) } };
+        const r = { success: true, data: { title, thumbnail: fixUrl(thumb), synopsis, chapters: chapters.slice(0, 200) } };
         setCache(ck, r); res.json(r);
     } catch(e) { res.json({ success: false, error: e.message }); }
 });
 
+// ========== READ ==========
 app.get('/api/read', async (req, res) => {
     const { url } = req.query;
     if (!url) return res.json({ success: false });
@@ -87,50 +109,74 @@ app.get('/api/read', async (req, res) => {
         const { data } = await axios.get(url, { headers: { 'User-Agent': UA }, timeout: 15000 });
         const $ = cheerio.load(data);
         const imgs = [];
-        $('#readerarea img, .chapter-content img, .post-entry img, .entry-content img, img[src*="/wp-content/"], img[src*="/chapter/"], img[src*="/komik/"]').each((i, el) => {
-            const s = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy') || $(el).attr('data-cfsrc') || '';
-            if (s && (s.includes('.jpg') || s.includes('.png') || s.includes('.webp') || s.includes('.jpeg')) && !s.includes('avatar') && !s.includes('icon') && !s.includes('logo')) {
-                let full = s.startsWith('http') ? s : (s.startsWith('//') ? 'https:' + s : (s.startsWith('/') ? '' : '/') + s);
-                if (full && !full.startsWith('http')) full = BASE + full;
-                imgs.push(full);
-            }
+        $('#readerarea img, .chapter-content img, .post-entry img, .entry-content img, img[src*="/wp-content/"], img[src*="/chapter/"], img[src*="/komik/"], img[itemprop="image"]').each((i, el) => {
+            const s = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy') || '';
+            if (s && /\.(jpg|png|webp|jpeg)/i.test(s) && !/avatar|icon|logo/i.test(s)) imgs.push(fixUrl(s));
         });
         if (imgs.length === 0) {
             $('img').each((i, el) => {
-                const s = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy') || '';
-                if (s && (s.includes('.jpg') || s.includes('.png') || s.includes('.webp')) && !s.includes('avatar') && !s.includes('icon') && !s.includes('logo') && !s.includes('banner')) {
-                    let full = s.startsWith('http') ? s : (s.startsWith('//') ? 'https:' + s : (s.startsWith('/') ? '' : '/') + s);
-                    if (full && !full.startsWith('http')) full = BASE + full;
-                    imgs.push(full);
-                }
+                const s = $(el).attr('src') || $(el).attr('data-src') || '';
+                if (s && /\.(jpg|png|webp)/i.test(s) && !/avatar|icon|logo|banner/i.test(s)) imgs.push(fixUrl(s));
             });
         }
-        const r = { success: true, data: { title: $('h1').first().text().trim() || $('.entry-title').text().trim() || 'Chapter', images: [...new Set(imgs)] } };
+        const r = { success: true, data: { title: $('h1').first().text().trim() || 'Chapter', images: [...new Set(imgs)] } };
         setCache(ck, r); res.json(r);
     } catch(e) { res.json({ success: false, error: e.message }); }
 });
 
+// ========== SEARCH ==========
 app.get('/api/search', async (req, res) => {
     const { q } = req.query;
     if (!q) return res.json({ success: false });
+    const query = q.toLowerCase();
     try {
         const { data } = await axios.get(`${BASE}/?s=${encodeURIComponent(q)}`, { headers: { 'User-Agent': UA }, timeout: 15000 });
         const $ = cheerio.load(data);
         const list = [];
         $('a[href*="/komik/"]').each((i, el) => {
             const href = $(el).attr('href');
-            const title = $(el).attr('title') || $(el).text().trim();
-            if (href && title && title.length > 2) list.push({ title: title.trim(), url: href.startsWith('http') ? href : BASE + href });
+            const title = ($(el).attr('title') || $(el).text().trim()).toLowerCase();
+            if (href && title && title.includes(query)) list.push({ title: $(el).attr('title') || $(el).text().trim(), url: href.startsWith('http') ? href : BASE + href });
         });
         res.json({ success: true, data: [...new Map(list.map(r => [r.url, r])).values()].slice(0, 30) });
     } catch(e) { res.json({ success: false, error: e.message }); }
 });
 
-const bookmarks = {};
-const comments = {};
-const reacts = {};
-const reactCounts = {};
+// ========== GENRES ==========
+app.get('/api/genres', async (req, res) => {
+    const c = getCache('genres'); if (c) return res.json(c);
+    try {
+        const { data } = await axios.get(BASE + '/daftar-komik/', { headers: { 'User-Agent': UA }, timeout: 15000 });
+        const $ = cheerio.load(data);
+        const genres = [];
+        $('a[href*="/genre/"], a[href*="/genres/"]').each((i, el) => {
+            const t = $(el).text().trim();
+            const u = $(el).attr('href');
+            if (t && u && t.length > 2) genres.push({ name: t, url: u.startsWith('http') ? u : BASE + u });
+        });
+        const r = { success: true, data: [...new Map(genres.map(g => [g.name, g])).values()] };
+        setCache('genres', r); res.json(r);
+    } catch(e) { res.json({ success: false, error: e.message }); }
+});
 
+app.get('/api/genre', async (req, res) => {
+    const { url } = req.query;
+    if (!url) return res.json({ success: false });
+    try {
+        const { data } = await axios.get(url, { headers: { 'User-Agent': UA }, timeout: 15000 });
+        const $ = cheerio.load(data);
+        const list = [];
+        $('a[href*="/komik/"]').each((i, el) => {
+            const href = $(el).attr('href');
+            const title = $(el).attr('title') || $(el).find('img').attr('title') || $(el).text().trim();
+            if (href && title && href.includes('/komik/') && title.length > 2) list.push({ title: title.trim(), url: href.startsWith('http') ? href : BASE + href });
+        });
+        res.json({ success: true, data: [...new Map(list.map(r => [r.url, r])).values()].slice(0, 50) });
+    } catch(e) { res.json({ success: false, error: e.message }); }
+});
+
+// ========== BOOKMARK ==========
+const bookmarks = {};
 app.get('/api/bookmarks', (req, res) => {
     const { uid } = req.query;
     if (!uid) return res.json({ success: false });
@@ -150,6 +196,10 @@ app.post('/api/bookmarks/remove', (req, res) => {
     res.json({ success: true });
 });
 
+// ========== COMMENT & REACT ==========
+const comments = {};
+const reacts = {};
+const reactCounts = {};
 app.get('/api/comments', (req, res) => {
     const { url } = req.query;
     res.json({ success: true, data: comments[url] || [], reacts: reactCounts[url] || { like: 0, love: 0, fire: 0 } });
@@ -159,7 +209,7 @@ app.post('/api/comments/add', (req, res) => {
     if (!url || !uid || !text) return res.json({ success: false });
     if (!comments[url]) comments[url] = [];
     comments[url].push({ uid, name, avatar, text: text.substring(0, 500), date: new Date().toISOString() });
-    res.json({ success: true, data: comments[url] });
+    res.json({ success: true });
 });
 app.post('/api/react', (req, res) => {
     const { url, uid, type } = req.body;
