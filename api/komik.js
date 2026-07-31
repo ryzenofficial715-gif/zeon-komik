@@ -34,10 +34,15 @@ app.get('/api/home', async (req, res) => {
             const href = $(el).attr('href');
             const title = $(el).attr('title') || $(el).text().trim();
             const img = $(el).find('img').first();
-            const src = img.attr('src') || img.attr('data-src') || '';
+            const src = img.attr('src') || img.attr('data-src') || img.attr('data-lazy') || img.attr('data-cfsrc') || '';
             if (href && title && href.includes('/komik/') && title.length > 2) {
                 const u = href.startsWith('http') ? href : BASE + href;
-                if (!list.find(k => k.url === u)) list.push({ title: title.trim(), url: u, thumbnail: src.startsWith('http') ? src : (src.startsWith('/') ? BASE + src : '') });
+                if (!list.find(k => k.url === u)) {
+                    let thumb = '';
+                    if (src) thumb = src.startsWith('http') ? src : (src.startsWith('//') ? 'https:' + src : (src.startsWith('/') ? '' : '/') + src);
+                    if (thumb && !thumb.startsWith('http')) thumb = BASE + thumb;
+                    list.push({ title: title.trim(), url: u, thumbnail: thumb });
+                }
             }
         });
         const r = { success: true, data: list.slice(0, 50) };
@@ -54,15 +59,21 @@ app.get('/api/detail', async (req, res) => {
         const { data } = await axios.get(url, { headers: { 'User-Agent': UA }, timeout: 15000 });
         const $ = cheerio.load(data);
         const title = $('.entry-title').text().trim() || $('h1').first().text().trim() || 'Unknown';
-        const thumbnail = ($('.thumb img').first().attr('src') || $('img').first().attr('src') || '').replace(/^\/\//, 'https://');
-        const synopsis = ($('.entry-content, .sinopsis, .desc').first().text() || '').trim().substring(0, 500);
+        const thumbEl = $('.thumb img').first() || $('.anmsb img').first() || $('img.wp-post-image').first();
+        const thumbnail = (thumbEl.attr('src') || '').replace(/^\/\//, 'https://');
+        const synopsis = ($('.entry-content, .sinopsis, .desc, .wd-full').first().text() || $('p').first().text() || '').trim().substring(0, 500);
         const chapters = [];
-        $('a[href*="/ch/"], a[href*="/chapter/"], .eplister a').each((i, el) => {
+        $('.eps_lst a, .listeps a, a[href*="/ch/"], a[href*="/chapter/"]').each((i, el) => {
             const t = $(el).text().trim();
             const u = $(el).attr('href');
-            if (t && u) chapters.push({ title: t, url: u.startsWith('http') ? u : BASE + u, date: '' });
+            if (t && u && t.length > 2) {
+                const fullUrl = u.startsWith('http') ? u : BASE + u;
+                if (!chapters.find(c => c.url === fullUrl)) {
+                    chapters.push({ title: t, url: fullUrl, date: '' });
+                }
+            }
         });
-        const r = { success: true, data: { title, thumbnail, synopsis, chapters: [...new Map(chapters.map(c => [c.url, c])).values()].slice(0, 100) } };
+        const r = { success: true, data: { title, thumbnail: thumbnail.startsWith('http') ? thumbnail : (thumbnail.startsWith('/') ? BASE + thumbnail : ''), synopsis, chapters: chapters.slice(0, 200) } };
         setCache(ck, r); res.json(r);
     } catch(e) { res.json({ success: false, error: e.message }); }
 });
@@ -76,13 +87,25 @@ app.get('/api/read', async (req, res) => {
         const { data } = await axios.get(url, { headers: { 'User-Agent': UA }, timeout: 15000 });
         const $ = cheerio.load(data);
         const imgs = [];
-        $('img').each((i, el) => {
-            const s = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy') || '';
-            if (s && (s.includes('.jpg') || s.includes('.png') || s.includes('.webp')) && !s.includes('avatar') && !s.includes('icon')) {
-                imgs.push(s.startsWith('http') ? s : (s.startsWith('//') ? 'https:' + s : BASE + s));
+        $('#readerarea img, .chapter-content img, .post-entry img, .entry-content img, img[src*="/wp-content/"], img[src*="/chapter/"], img[src*="/komik/"]').each((i, el) => {
+            const s = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy') || $(el).attr('data-cfsrc') || '';
+            if (s && (s.includes('.jpg') || s.includes('.png') || s.includes('.webp') || s.includes('.jpeg')) && !s.includes('avatar') && !s.includes('icon') && !s.includes('logo')) {
+                let full = s.startsWith('http') ? s : (s.startsWith('//') ? 'https:' + s : (s.startsWith('/') ? '' : '/') + s);
+                if (full && !full.startsWith('http')) full = BASE + full;
+                imgs.push(full);
             }
         });
-        const r = { success: true, data: { title: $('h1').first().text().trim() || 'Chapter', images: [...new Set(imgs)] } };
+        if (imgs.length === 0) {
+            $('img').each((i, el) => {
+                const s = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy') || '';
+                if (s && (s.includes('.jpg') || s.includes('.png') || s.includes('.webp')) && !s.includes('avatar') && !s.includes('icon') && !s.includes('logo') && !s.includes('banner')) {
+                    let full = s.startsWith('http') ? s : (s.startsWith('//') ? 'https:' + s : (s.startsWith('/') ? '' : '/') + s);
+                    if (full && !full.startsWith('http')) full = BASE + full;
+                    imgs.push(full);
+                }
+            });
+        }
+        const r = { success: true, data: { title: $('h1').first().text().trim() || $('.entry-title').text().trim() || 'Chapter', images: [...new Set(imgs)] } };
         setCache(ck, r); res.json(r);
     } catch(e) { res.json({ success: false, error: e.message }); }
 });
