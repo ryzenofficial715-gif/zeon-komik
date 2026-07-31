@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baca — Zeon Komik</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg:#000a1a; --panel:#001030; --border:#002255; --text:#ddeeff; --dim:#4a80b8; --accent:#1e90ff; --accent2:#00bfff; }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { background:var(--bg); color:var(--text); font-family:'Poppins',sans-serif; min-height:100vh; }
+        .navbar { background:rgba(0,10,30,0.9); backdrop-filter:blur(20px); border-bottom:1px solid var(--border); padding:14px 20px; display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; z-index:100; }
+        .navbar .logo { font-family:'Orbitron',monospace; font-size:1.2rem; font-weight:900; background:linear-gradient(135deg, var(--accent2), var(--accent)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+        .navbar a { color:var(--dim); text-decoration:none; font-size:0.8rem; font-weight:600; }
+        .container { max-width:800px; margin:0 auto; padding:20px; }
+        .chapter-nav { display:flex; gap:10px; margin-bottom:20px; }
+        .chapter-nav select { flex:1; padding:10px; border-radius:10px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-family:'Poppins',sans-serif; outline:none; }
+        .chapter-nav button { padding:10px 20px; border-radius:10px; border:1px solid var(--border); background:var(--panel); color:var(--text); cursor:pointer; font-weight:600; font-family:'Poppins',sans-serif; }
+        .chapter-nav button:hover { background:var(--accent); color:white; }
+        .loading { text-align:center; padding:40px; color:var(--dim); }
+        .images img { width:100%; display:block; border-radius:4px; }
+        .back-btn { display:inline-block; margin-bottom:20px; color:var(--accent2); text-decoration:none; font-size:0.85rem; }
+        .footer { text-align:center; padding:30px; color:var(--dim); font-size:0.7rem; border-top:1px solid var(--border); margin-top:40px; }
+        .footer a { color:var(--accent2); text-decoration:none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar"><div class="logo">📚 ZEON KOMIK</div><a href="/">Home</a></nav>
+    <div class="container">
+        <a href="javascript:history.back()" class="back-btn">⬅ Kembali</a>
+        <div class="chapter-nav" id="chapterNav"></div>
+        <div id="content"></div>
+        <div class="loading" id="loading">Loading...</div>
+    </div>
+    <div class="footer">© 2026 <strong>Zeon Komik</strong> — Created by <a href="/about">Ryzen Official</a></div>
+
+    <script>
+        const params = new URLSearchParams(location.search);
+        const komikUrl = params.get('url');
+        const komikTitle = params.get('title') || 'Komik';
+
+        async function loadChapters() {
+            const nav = document.getElementById('chapterNav');
+            try {
+                const r = await fetch('/api/detail?url=' + encodeURIComponent(komikUrl));
+                const d = await r.json();
+                if (d.success && d.data.chapters.length) {
+                    const ch = d.data.chapters;
+                    const currentCh = params.get('ch') || ch[0].url;
+                    let sel = '<select id="chapterSelect" onchange="changeChapter()">';
+                    ch.forEach(c => sel += `<option value="${encodeURIComponent(c.url)}" ${c.url === decodeURIComponent(currentCh) ? 'selected' : ''}>${c.title}</option>`);
+                    sel += '</select>';
+                    nav.innerHTML = sel + '<button onclick="changeChapter()">Baca</button>';
+                    loadImages(params.get('ch') ? decodeURIComponent(currentCh) : ch[0].url);
+                }
+            } catch(e) { nav.innerHTML = '<p style="color:var(--dim)">Gagal memuat.</p>'; }
+        }
+
+        function changeChapter() {
+            const ch = document.getElementById('chapterSelect').value;
+            loadImages(decodeURIComponent(ch));
+        }
+
+        async function loadImages(url) {
+            const content = document.getElementById('content');
+            const load = document.getElementById('loading');
+            content.innerHTML = '';
+            load.style.display = 'block';
+            try {
+                const r = await fetch('/api/read?url=' + encodeURIComponent(url));
+                const d = await r.json();
+                content.innerHTML = d.success && d.data.images.length ? d.data.images.map(i => `<img src="${i}" alt="page" loading="lazy">`).join('') : '<p style="color:var(--dim);text-align:center">Gambar tidak tersedia.</p>';
+            } catch(e) { content.innerHTML = '<p style="color:var(--dim);text-align:center">Gagal memuat.</p>'; }
+            load.style.display = 'none';
+            window.scrollTo(0, 0);
+        }
+
+        if (komikUrl) loadChapters();
+    </script>
+</body>
+</html>
