@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About — Zeon Komik</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg:#000a1a; --panel:#001030; --border:#002255; --text:#ddeeff; --dim:#4a80b8; --accent:#1e90ff; --accent2:#00bfff; }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { background:var(--bg); color:var(--text); font-family:'Poppins',sans-serif; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px; text-align:center; }
+        .card { background:var(--panel); border:1px solid var(--border); border-radius:24px; padding:40px 30px; max-width:500px; box-shadow:0 20px 60px rgba(0,0,0,0.5); }
+        .card h1 { font-family:'Orbitron',monospace; font-size:2rem; background:linear-gradient(135deg, var(--accent2), var(--accent)); -webkit-background-clip:text; background-clip:text; color:transparent; margin-bottom:10px; }
+        .card .by { color:var(--dim); font-size:0.9rem; margin-bottom:30px; }
+        .card .by span { color:var(--accent2); font-weight:700; }
+        .card .info { font-size:0.85rem; color:var(--dim); line-height:1.8; margin-bottom:30px; }
+        .card .info strong { color:var(--text); }
+        .btn { background:linear-gradient(135deg, var(--accent), var(--accent2)); color:white; padding:12px 30px; border-radius:25px; text-decoration:none; font-weight:700; font-size:0.9rem; display:inline-block; transition:all 0.3s; }
+        .btn:hover { filter:brightness(1.2); transform:translateY(-2px); }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>📚 ZEON KOMIK</h1>
+        <div class="by">Created by <span>Ryzen Official</span></div>
+        <div class="info">
+            <strong>Zeon Komik</strong> adalah platform baca komik online gratis. Semua konten di-scrape dari sumber publik.<br><br>
+            <strong>Creator:</strong> Ryzen Official<br>
+            <strong>GitHub:</strong> ryzenofficial715-gif<br>
+            <strong>Tech:</strong> Node.js + Cheerio + Vercel<br>
+            <strong>Update:</strong> Real-time otomatis
+        </div>
+        <a href="/" class="btn">⬅ Kembali ke Home</a>
+    </div>
+</body>
+</html>
