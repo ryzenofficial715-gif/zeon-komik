@@ -32,48 +32,44 @@ function fixUrl(u) {
     return BASE + '/' + u;
 }
 
-// ========== HOME ==========
+function cleanText(t) {
+    return (t || '').replace(/komikindo|komik indo|baca komik|download komik/gi, '').replace(/\s+/g, ' ').trim();
+}
+
 app.get('/api/home', async (req, res) => {
     const c = getCache('home'); if (c) return res.json(c);
     try {
         const { data } = await axios.get(BASE, { headers: { 'User-Agent': UA }, timeout: 15000 });
         const $ = cheerio.load(data);
         const list = [];
-
         $('.listupd .animepost, .serieslist .animepost, .listupd a, .serieslist a').each((i, el) => {
             const link = $(el).is('a') ? $(el) : $(el).find('a').first();
             const href = link.attr('href');
             const img = $(el).find('img').first();
-            const src = img.attr('src') || img.attr('data-src') || img.attr('data-lazy') || '';
-            const title = img.attr('title') || img.attr('alt') || link.attr('title') || link.text().trim();
-
+            const src = img.attr('src') || img.attr('data-src') || img.attr('data-lazy') || img.attr('data-cfsrc') || '';
+            const title = cleanText(img.attr('title') || img.attr('alt') || link.attr('title') || link.text());
             if (href && title && href.includes('/komik/') && title.length > 2) {
                 const u = href.startsWith('http') ? href : BASE + href;
-                if (!list.find(k => k.url === u)) {
-                    list.push({ title: title.trim(), url: u, thumbnail: fixUrl(src) });
-                }
+                if (!list.find(k => k.url === u)) list.push({ title, url: u, thumbnail: fixUrl(src) });
             }
         });
-
         if (list.length === 0) {
             $('a[href*="/komik/"]').each((i, el) => {
                 const href = $(el).attr('href');
-                const title = $(el).attr('title') || $(el).find('img').attr('title') || $(el).text().trim();
+                const title = cleanText($(el).attr('title') || $(el).find('img').attr('title') || $(el).text());
                 const img = $(el).find('img[itemprop="image"], img').first();
                 const src = img.attr('src') || img.attr('data-src') || img.attr('data-lazy') || '';
                 if (href && title && href.includes('/komik/') && title.length > 2) {
                     const u = href.startsWith('http') ? href : BASE + href;
-                    if (!list.find(k => k.url === u)) list.push({ title: title.trim(), url: u, thumbnail: fixUrl(src) });
+                    if (!list.find(k => k.url === u)) list.push({ title, url: u, thumbnail: fixUrl(src) });
                 }
             });
         }
-
         const r = { success: true, data: list.slice(0, 50) };
         setCache('home', r); res.json(r);
     } catch(e) { res.json({ success: false, error: e.message }); }
 });
 
-// ========== DETAIL ==========
 app.get('/api/detail', async (req, res) => {
     const { url } = req.query;
     if (!url) return res.json({ success: false });
@@ -82,24 +78,23 @@ app.get('/api/detail', async (req, res) => {
     try {
         const { data } = await axios.get(url, { headers: { 'User-Agent': UA }, timeout: 15000 });
         const $ = cheerio.load(data);
-        const title = $('.entry-title').text().trim() || $('h1').first().text().trim() || 'Unknown';
+        const title = cleanText($('.entry-title').text() || $('h1').first().text() || 'Unknown');
         const thumb = $('.thumb img[itemprop="image"], .thumb img, img.wp-post-image, img[itemprop="image"], .animepost img').first().attr('src') || '';
-        const synopsis = ($('.entry-content, .sinopsis, .desc').first().text() || '').trim().substring(0, 500);
+        const synopsis = cleanText(($('.entry-content, .sinopsis, .desc').first().text() || '').substring(0, 500));
         const chapters = [];
         $('.eps_lst a, .listeps a, a[href*="/ch/"], a[href*="/chapter/"]').each((i, el) => {
-            const t = $(el).text().trim();
+            const t = cleanText($(el).text());
             const u = $(el).attr('href');
             if (t && u && t.length > 2) {
                 const fullUrl = u.startsWith('http') ? u : BASE + u;
                 if (!chapters.find(c => c.url === fullUrl)) chapters.push({ title: t, url: fullUrl, date: '' });
             }
         });
-        const r = { success: true, data: { title, thumbnail: fixUrl(thumb), synopsis, chapters: chapters.slice(0, 200) } };
+        const r = { success: true, data: { title, thumbnail: fixUrl(thumb), synopsis, chapters: chapters.slice(0, 500) } };
         setCache(ck, r); res.json(r);
     } catch(e) { res.json({ success: false, error: e.message }); }
 });
 
-// ========== READ ==========
 app.get('/api/read', async (req, res) => {
     const { url } = req.query;
     if (!url) return res.json({ success: false });
@@ -109,22 +104,20 @@ app.get('/api/read', async (req, res) => {
         const { data } = await axios.get(url, { headers: { 'User-Agent': UA }, timeout: 15000 });
         const $ = cheerio.load(data);
         const imgs = [];
-        $('#readerarea img, .chapter-content img, .post-entry img, .entry-content img, img[src*="/wp-content/"], img[src*="/chapter/"], img[src*="/komik/"], img[itemprop="image"]').each((i, el) => {
-            const s = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy') || '';
-            if (s && /\.(jpg|png|webp|jpeg)/i.test(s) && !/avatar|icon|logo/i.test(s)) imgs.push(fixUrl(s));
+        $('*').each((i, el) => {
+            const txt = $(el).text();
+            if (/komikindo|komik indo/i.test(txt) && !$(el).is('img') && !$(el).is('input') && !$(el).is('a')) $(el).remove();
         });
-        if (imgs.length === 0) {
-            $('img').each((i, el) => {
-                const s = $(el).attr('src') || $(el).attr('data-src') || '';
-                if (s && /\.(jpg|png|webp)/i.test(s) && !/avatar|icon|logo|banner/i.test(s)) imgs.push(fixUrl(s));
-            });
-        }
-        const r = { success: true, data: { title: $('h1').first().text().trim() || 'Chapter', images: [...new Set(imgs)] } };
+        $('img').each((i, el) => {
+            const s = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy') || $(el).attr('data-cfsrc') || '';
+            const w = parseInt($(el).attr('width') || '0');
+            if (s && /\.(jpg|png|webp|jpeg)/i.test(s) && !/avatar|icon|logo/i.test(s) && w !== 50 && w !== 100) imgs.push(fixUrl(s));
+        });
+        const r = { success: true, data: { title: cleanText($('h1').first().text() || 'Chapter'), images: [...new Set(imgs)] } };
         setCache(ck, r); res.json(r);
     } catch(e) { res.json({ success: false, error: e.message }); }
 });
 
-// ========== SEARCH ==========
 app.get('/api/search', async (req, res) => {
     const { q } = req.query;
     if (!q) return res.json({ success: false });
@@ -135,14 +128,13 @@ app.get('/api/search', async (req, res) => {
         const list = [];
         $('a[href*="/komik/"]').each((i, el) => {
             const href = $(el).attr('href');
-            const title = ($(el).attr('title') || $(el).text().trim()).toLowerCase();
-            if (href && title && title.includes(query)) list.push({ title: $(el).attr('title') || $(el).text().trim(), url: href.startsWith('http') ? href : BASE + href });
+            const title = ($(el).attr('title') || $(el).text()).toLowerCase();
+            if (href && title && title.includes(query)) list.push({ title: cleanText($(el).attr('title') || $(el).text()), url: href.startsWith('http') ? href : BASE + href });
         });
         res.json({ success: true, data: [...new Map(list.map(r => [r.url, r])).values()].slice(0, 30) });
     } catch(e) { res.json({ success: false, error: e.message }); }
 });
 
-// ========== GENRES ==========
 app.get('/api/genres', async (req, res) => {
     const c = getCache('genres'); if (c) return res.json(c);
     try {
@@ -150,7 +142,7 @@ app.get('/api/genres', async (req, res) => {
         const $ = cheerio.load(data);
         const genres = [];
         $('a[href*="/genre/"], a[href*="/genres/"]').each((i, el) => {
-            const t = $(el).text().trim();
+            const t = cleanText($(el).text());
             const u = $(el).attr('href');
             if (t && u && t.length > 2) genres.push({ name: t, url: u.startsWith('http') ? u : BASE + u });
         });
@@ -168,14 +160,13 @@ app.get('/api/genre', async (req, res) => {
         const list = [];
         $('a[href*="/komik/"]').each((i, el) => {
             const href = $(el).attr('href');
-            const title = $(el).attr('title') || $(el).find('img').attr('title') || $(el).text().trim();
-            if (href && title && href.includes('/komik/') && title.length > 2) list.push({ title: title.trim(), url: href.startsWith('http') ? href : BASE + href });
+            const title = cleanText($(el).attr('title') || $(el).find('img').attr('title') || $(el).text());
+            if (href && title && href.includes('/komik/') && title.length > 2) list.push({ title, url: href.startsWith('http') ? href : BASE + href });
         });
         res.json({ success: true, data: [...new Map(list.map(r => [r.url, r])).values()].slice(0, 50) });
     } catch(e) { res.json({ success: false, error: e.message }); }
 });
 
-// ========== BOOKMARK ==========
 const bookmarks = {};
 app.get('/api/bookmarks', (req, res) => {
     const { uid } = req.query;
@@ -196,7 +187,6 @@ app.post('/api/bookmarks/remove', (req, res) => {
     res.json({ success: true });
 });
 
-// ========== COMMENT & REACT ==========
 const comments = {};
 const reacts = {};
 const reactCounts = {};
