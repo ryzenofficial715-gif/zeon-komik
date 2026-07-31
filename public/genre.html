@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Genre — Zeon Komik</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg:#000a1a; --panel:#001030; --border:#002255; --text:#ddeeff; --dim:#4a80b8; --accent:#1e90ff; --accent2:#00bfff; }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { background:var(--bg); color:var(--text); font-family:'Poppins',sans-serif; min-height:100vh; }
+        .navbar { background:rgba(0,10,30,0.9); backdrop-filter:blur(20px); border-bottom:1px solid var(--border); padding:14px 20px; display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; z-index:100; }
+        .navbar .logo { font-family:'Orbitron',monospace; font-size:1.2rem; font-weight:900; background:linear-gradient(135deg, var(--accent2), var(--accent)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+        .navbar a { color:var(--dim); text-decoration:none; font-size:0.8rem; font-weight:600; }
+        .container { max-width:1200px; margin:0 auto; padding:20px; }
+        .section-title { font-family:'Orbitron',monospace; font-size:1.1rem; font-weight:700; letter-spacing:2px; color:var(--accent2); margin-bottom:20px; }
+        .komik-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap:16px; }
+        .komik-card { background:var(--panel); border:1px solid var(--border); border-radius:16px; overflow:hidden; cursor:pointer; transition:all 0.3s; text-decoration:none; color:var(--text); display:block; }
+        .komik-card:hover { border-color:var(--accent2); transform:translateY(-4px); }
+        .komik-card .info { padding:10px 12px; }
+        .komik-card .title { font-size:0.8rem; font-weight:600; }
+        .loading { text-align:center; padding:40px; color:var(--dim); }
+        .footer { text-align:center; padding:30px; color:var(--dim); font-size:0.7rem; border-top:1px solid var(--border); margin-top:40px; }
+        .footer a { color:var(--accent2); text-decoration:none; }
+        @media (max-width:600px) { .komik-grid { grid-template-columns:repeat(3, 1fr); gap:10px; } }
+    </style>
+</head>
+<body>
+    <nav class="navbar"><div class="logo">📚 ZEON KOMIK</div><a href="/">Home</a></nav>
+    <div class="container">
+        <div class="section-title" id="genreTitle">🎭 Genre</div>
+        <div class="komik-grid" id="results"></div>
+        <div class="loading" id="loading">Loading...</div>
+    </div>
+    <div class="footer">© 2026 <strong>Zeon Komik</strong> — Created by <a href="/about">Ryzen Official</a></div>
+    <script>
+        const params = new URLSearchParams(location.search);
+        const genreUrl = params.get('url');
+        const genreName = params.get('name') || 'Genre';
+        document.getElementById('genreTitle').textContent = '🎭 ' + genreName;
+        async function loadGenre() {
+            if (!genreUrl) return;
+            const r = await fetch('/api/genre?url=' + encodeURIComponent(genreUrl));
+            const d = await r.json();
+            const grid = document.getElementById('results');
+            document.getElementById('loading').style.display = 'none';
+            if (d.success && d.data.length) {
+                grid.innerHTML = d.data.map(k => `<a href="/detail?url=${encodeURIComponent(k.url)}&title=${encodeURIComponent(k.title)}" class="komik-card"><div class="info"><div class="title">${k.title}</div></div></a>`).join('');
+            } else { grid.innerHTML = '<div class="loading">Tidak ada komik.</div>'; }
+        }
+        loadGenre();
+    </script>
+</body>
+</html>
