@@ -82,7 +82,7 @@ app.get('/api/detail', async (req, res) => {
         const thumb = $('.thumb img[itemprop="image"], .thumb img, img.wp-post-image, img[itemprop="image"], .animepost img').first().attr('src') || '';
         const synopsis = cleanText(($('.entry-content, .sinopsis, .desc').first().text() || '').substring(0, 500));
         const chapters = [];
-        $('.eps_lst a, .listeps a, a[href*="/ch/"], a[href*="/chapter/"]').each((i, el) => {
+        $('.eps_lst a, .listeps a, a[href*="/ch/"], a[href*="/chapter/"], a[href*="-chapter-"]').each((i, el) => {
             const t = cleanText($(el).text());
             const u = $(el).attr('href');
             if (t && u && t.length > 2) {
