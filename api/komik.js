@@ -104,16 +104,34 @@ app.get('/api/read', async (req, res) => {
         const { data } = await axios.get(url, { headers: { 'User-Agent': UA }, timeout: 15000 });
         const $ = cheerio.load(data);
         const imgs = [];
+        
+        // Hapus teks Komikindo
         $('*').each((i, el) => {
             const txt = $(el).text();
-            if (/komikindo|komik indo/i.test(txt) && !$(el).is('img') && !$(el).is('input') && !$(el).is('a')) $(el).remove();
+            if (/komikindo|komik indo/i.test(txt) && !$(el).is('img') && !$(el).is('input') && !$(el).is('a')) {
+                $(el).remove();
+            }
         });
-        $('img').each((i, el) => {
-            const s = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy') || $(el).attr('data-cfsrc') || '';
-            const w = parseInt($(el).attr('width') || '0');
-            if (s && /\.(jpg|png|webp|jpeg)/i.test(s) && !/avatar|icon|logo/i.test(s) && w !== 50 && w !== 100) imgs.push(fixUrl(s));
+        
+        // Ambil gambar dari chapter-image
+        $('.chapter-image img, .chapter-content img, .chapter-area img, .postbody img, img[src*="/data/"], img[src*=".lol/"], img[src*=".lat/"], img[src*=".pics/"], img[src*="imageaine"], img[src*="himmga"], img[src*="gaimgame"], img[src*="indocontent"], img[src*="aicontent"], img[src*="contentkerewn"]').each((i, el) => {
+            const s = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy') || '';
+            if (s && /\.(jpg|png|webp|jpeg)/i.test(s) && !/avatar|icon|logo|fav/i.test(s)) {
+                imgs.push(s.startsWith('http') ? s : 'https:' + s);
+            }
         });
-        const r = { success: true, data: { title: cleanText($('h1').first().text() || 'Chapter'), images: [...new Set(imgs)] } };
+        
+        // Fallback: semua img dengan src data/
+        if (imgs.length === 0) {
+            $('img').each((i, el) => {
+                const s = $(el).attr('src') || '';
+                if (s && /\/data\//.test(s) && /\.(jpg|png|webp)/i.test(s)) {
+                    imgs.push(s.startsWith('http') ? s : 'https:' + s);
+                }
+            });
+        }
+        
+        const r = { success: true, data: { title: cleanText($('.entry-title').text() || $('h1').first().text() || 'Chapter'), images: [...new Set(imgs)] } };
         setCache(ck, r); res.json(r);
     } catch(e) { res.json({ success: false, error: e.message }); }
 });
