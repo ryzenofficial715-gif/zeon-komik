@@ -94,8 +94,13 @@
             }
         });
 
-        auth.getRedirectResult().then(r => { if (r.user) location.reload(); }).catch(() => {});
-        function loginGoogle() { auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider()); }
+        auth.getRedirectResult().then(r => { if (r && r.user) location.reload(); }).catch(() => {});
+
+        function loginGoogle() { 
+            const p = new firebase.auth.GoogleAuthProvider();
+            p.setCustomParameters({ prompt: 'select_account' });
+            auth.signInWithPopup(p).catch(() => auth.signInWithRedirect(p));
+        }
         function logout() { auth.signOut(); }
 
         async function loadHome() {
