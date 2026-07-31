@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bookmark — Zeon Komik</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <style>
+        :root { --bg:#000a1a; --panel:#001030; --border:#002255; --text:#ddeeff; --dim:#4a80b8; --accent:#1e90ff; --accent2:#00bfff; }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { background:var(--bg); color:var(--text); font-family:'Poppins',sans-serif; min-height:100vh; }
+        .navbar { background:rgba(0,10,30,0.9); backdrop-filter:blur(20px); border-bottom:1px solid var(--border); padding:14px 20px; display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; z-index:100; }
+        .navbar .logo { font-family:'Orbitron',monospace; font-size:1.2rem; font-weight:900; background:linear-gradient(135deg, var(--accent2), var(--accent)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+        .navbar a { color:var(--dim); text-decoration:none; font-size:0.8rem; font-weight:600; }
+        .container { max-width:800px; margin:0 auto; padding:20px; }
+        .list { display:flex; flex-direction:column; gap:8px; }
+        .item { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:14px; display:flex; justify-content:space-between; align-items:center; }
+        .item a { text-decoration:none; color:var(--text); flex:1; }
+        .item .remove { color:var(--dim); cursor:pointer; background:none; border:none; font-size:1.2rem; padding:4px 8px; }
+        .item .remove:hover { color:#ff6b6b; }
+        .loading { text-align:center; padding:40px; color:var(--dim); }
+        .footer { text-align:center; padding:30px; color:var(--dim); font-size:0.7rem; border-top:1px solid var(--border); margin-top:40px; }
+        .footer a { color:var(--accent2); text-decoration:none; }
+    </style>
+</head>
+<body>
+    <nav class="navbar"><div class="logo">📚 ZEON KOMIK</div><a href="/">Home</a></nav>
+    <div class="container">
+        <h2 style="margin-bottom:20px;font-family:'Orbitron',monospace;color:var(--accent2)">🔖 BOOKMARK</h2>
+        <div class="list" id="list"></div>
+        <div class="loading" id="loading">Loading...</div>
+    </div>
+    <div class="footer">© 2026 <strong>Zeon Komik</strong> — Created by <a href="/about">Ryzen Official</a></div>
+
+    <script>
+        const firebaseConfig = { apiKey:"AIzaSyA3lMBhYIjeZSMhLyYbgKRnCCQWyA-yg8s", authDomain:"zeon-komik.firebaseapp.com", projectId:"zeon-komik", storageBucket:"zeon-komik.firebasestorage.app", messagingSenderId:"542220756538", appId:"1:542220756538:web:8facd06a688b19e48f3703" };
+        firebase.initializeApp(firebaseConfig);
+        firebase.auth().onAuthStateChanged(async user => {
+            if (!user) return window.location.href = '/';
+            const r = await fetch('/api/bookmarks?uid=' + user.uid);
+            const d = await r.json();
+            const list = document.getElementById('list');
+            document.getElementById('loading').style.display = 'none';
+            if (d.data?.length) {
+                list.innerHTML = d.data.map(b => `<div class="item"><a href="/detail?url=${encodeURIComponent(b.url)}&title=${encodeURIComponent(b.title)}">${b.title}</a><button class="remove" onclick="removeBm('${encodeURIComponent(b.url)}')">✕</button></div>`).join('');
+            } else { list.innerHTML = '<p style="color:var(--dim)">Belum ada bookmark.</p>'; }
+        });
+        async function removeBm(url) {
+            const user = firebase.auth().currentUser;
+            await fetch('/api/bookmarks/remove', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ uid:user.uid, url:decodeURIComponent(url) }) });
+            location.reload();
+        }
+    </script>
+</body>
+</html>
