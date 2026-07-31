@@ -101,27 +101,41 @@ app.get('/api/read', async (req, res) => {
     const ck = 'read_' + encodeURIComponent(url);
     const c = getCache(ck); if (c) return res.json(c);
     try {
-        const { data } = await axios.get(url, { headers: { 'User-Agent': UA }, timeout: 15000 });
+        const { data } = await axios.get(url, { headers: { 'User-Agent': UA }, timeout: 20000 });
         const $ = cheerio.load(data);
         const imgs = [];
-        
-        // Hapus teks Komikindo
+
+        // Target: semua domain eksternal tempat gambar
+        const imgDomains = [
+            'aicontentwow.lol', 'contentkerewnrorai.lat', 'gaimgame.pics',
+            'himmga.lat', 'imageainewgeneration.lol', 'indocontentaising.lol'
+        ];
+
+        // Hapus teks komikindo
         $('*').each((i, el) => {
             const txt = $(el).text();
             if (/komikindo|komik indo/i.test(txt) && !$(el).is('img') && !$(el).is('input') && !$(el).is('a')) {
                 $(el).remove();
             }
         });
-        
-        // Ambil gambar dari chapter-image
-        $('.chapter-image img, .chapter-content img, .chapter-area img, .postbody img, img[src*="/data/"], img[src*=".lol/"], img[src*=".lat/"], img[src*=".pics/"], img[src*="imageaine"], img[src*="himmga"], img[src*="gaimgame"], img[src*="indocontent"], img[src*="aicontent"], img[src*="contentkerewn"]').each((i, el) => {
+
+        // Ambil SEMUA gambar
+        $('img').each((i, el) => {
             const s = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy') || '';
-            if (s && /\.(jpg|png|webp|jpeg)/i.test(s) && !/avatar|icon|logo|fav/i.test(s)) {
+            if (!s) return;
+            if (!/\.(jpg|png|webp|jpeg)/i.test(s)) return;
+            if (/avatar|icon|logo|fav/i.test(s)) return;
+
+            // Terima dari domain gambar atau dari wp-content/uploads
+            const isImageDomain = imgDomains.some(d => s.includes(d));
+            const isWpContent = s.includes('/wp-content/uploads/') && !s.includes('fav');
+            
+            if (isImageDomain || isWpContent) {
                 imgs.push(s.startsWith('http') ? s : 'https:' + s);
             }
         });
-        
-        // Fallback: semua img dengan src data/
+
+        // Fallback: kalau kosong, ambil semua yang ada /data/ di URL
         if (imgs.length === 0) {
             $('img').each((i, el) => {
                 const s = $(el).attr('src') || '';
@@ -130,26 +144,9 @@ app.get('/api/read', async (req, res) => {
                 }
             });
         }
-        
+
         const r = { success: true, data: { title: cleanText($('.entry-title').text() || $('h1').first().text() || 'Chapter'), images: [...new Set(imgs)] } };
         setCache(ck, r); res.json(r);
-    } catch(e) { res.json({ success: false, error: e.message }); }
-});
-
-app.get('/api/search', async (req, res) => {
-    const { q } = req.query;
-    if (!q) return res.json({ success: false });
-    const query = q.toLowerCase();
-    try {
-        const { data } = await axios.get(`${BASE}/?s=${encodeURIComponent(q)}`, { headers: { 'User-Agent': UA }, timeout: 15000 });
-        const $ = cheerio.load(data);
-        const list = [];
-        $('a[href*="/komik/"]').each((i, el) => {
-            const href = $(el).attr('href');
-            const title = ($(el).attr('title') || $(el).text()).toLowerCase();
-            if (href && title && title.includes(query)) list.push({ title: cleanText($(el).attr('title') || $(el).text()), url: href.startsWith('http') ? href : BASE + href });
-        });
-        res.json({ success: true, data: [...new Map(list.map(r => [r.url, r])).values()].slice(0, 30) });
     } catch(e) { res.json({ success: false, error: e.message }); }
 });
 
