@@ -111,11 +111,15 @@ app.get('/api/read', async (req, res) => {
         $('img').each((i, el) => {
             const s = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy') || '';
             if (!s) return;
-            if (!/\.(jpg|png|webp|jpeg)/i.test(s) && !s.includes('blogger.googleusercontent.com')) return;
-            if (/fav|avatar|icon|logo|komikindo-e/i.test(s)) return;
-            if (s.includes('wp-content/uploads') && s.includes('komikindo')) return;
-
-            imgs.push(s.startsWith('http') ? s : 'https:' + s);
+            
+            // HANYA filter ini yang di-skip
+            if (s.includes('/fav.png') || s.includes('/favicon') || s.includes('komikindo-e1704')) return;
+            if (s.includes('wp-content/uploads') && (s.includes('fav') || s.includes('Komik-Eleceed-196x285'))) return;
+            
+            // TERIMA semua selain di atas
+            if (s.includes('/data/') || s.includes('blogger.googleusercontent.com') || /\.(jpg|png|webp|jpeg)/i.test(s)) {
+                imgs.push(s.startsWith('http') ? s : 'https:' + s);
+            }
         });
 
         const r = { success: true, data: { title: cleanText($('.entry-title').text() || $('h1').first().text() || 'Chapter'), images: [...new Set(imgs)] } };
