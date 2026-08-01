@@ -12,7 +12,14 @@ app.use((req, res, next) => {
     if (/curl|wget|python|scrapy|fetch|node|bot|crawler/i.test(ua) && !ua.includes('Mozilla')) {
         return res.status(403).send('Akses ditolak');
     }
-    res.set({ 'X-Frame-Options': 'SAMEORIGIN', 'X-Content-Type-Options': 'nosniff', 'X-Powered-By': 'Zeon Komik', 'X-Creator': 'Ryzen Official' });
+    res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Pragma': 'no-cache',
+        'X-Frame-Options': 'SAMEORIGIN',
+        'X-Content-Type-Options': 'nosniff',
+        'X-Powered-By': 'Zeon Komik',
+        'X-Creator': 'Ryzen Official'
+    });
     next();
 });
 
@@ -97,7 +104,7 @@ app.get('/api/detail', async (req, res) => {
     } catch(e) { res.json({ success: false, error: e.message }); }
 });
 
-// ========== READ ==========
+// ========== READ (NO CACHE) ==========
 app.get('/api/read', async (req, res) => {
     const { url } = req.query;
     if (!url) return res.json({ success: false });
@@ -109,13 +116,9 @@ app.get('/api/read', async (req, res) => {
         $('img').each((i, el) => {
             const s = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy') || '';
             if (!s) return;
-            
-            // Skip junk
             if (s.includes('/fav.png') || s.includes('/favicon')) return;
             if (s.includes('komikindo-e1704648943874')) return;
-            if (s.match(/-\d+x\d+\.(jpg|png)$/)) return; // thumbnail
-            
-            // Terima gambar komik
+            if (s.match(/-\d+x\d+\.(jpg|png)$/)) return;
             if (s.includes('/data/') || s.includes('blogger.googleusercontent.com')) {
                 imgs.push(s.startsWith('http') ? s : 'https:' + s);
             }
