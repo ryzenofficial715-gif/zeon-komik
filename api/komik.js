@@ -102,7 +102,8 @@ app.get('/api/read', async (req, res) => {
     const { url } = req.query;
     if (!url) return res.json({ success: false });
     const ck = 'read_' + encodeURIComponent(url);
-    const c = getCache(ck); if (c) return res.json(c);
+    // HAPUS CACHE — biar gak pakai data lama
+    delete cache[ck];
     try {
         const { data } = await axios.get(url, { headers: { 'User-Agent': UA }, timeout: 20000 });
         const $ = cheerio.load(data);
@@ -112,12 +113,14 @@ app.get('/api/read', async (req, res) => {
             const s = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy') || '';
             if (!s) return;
             
-            // HANYA filter ini yang di-skip
-            if (s.includes('/fav.png') || s.includes('/favicon') || s.includes('komikindo-e1704')) return;
-            if (s.includes('wp-content/uploads') && (s.includes('fav') || s.includes('Komik-Eleceed-196x285'))) return;
+            // Skip: favicon, logo, thumbnail kecil
+            if (s.includes('/fav.png') || s.includes('/favicon')) return;
+            if (s.includes('komikindo-e1704648943874')) return;
+            if (s.includes('Komik-Eleceed-196x285')) return;
+            if (s.includes('wp-content/uploads') && s.match(/-\d+x\d+\.(jpg|png)$/)) return; // thumbnail
             
-            // TERIMA semua selain di atas
-            if (s.includes('/data/') || s.includes('blogger.googleusercontent.com') || /\.(jpg|png|webp|jpeg)/i.test(s)) {
+            // Terima: domain gambar + blogger
+            if (s.includes('/data/') || s.includes('blogger.googleusercontent.com')) {
                 imgs.push(s.startsWith('http') ? s : 'https:' + s);
             }
         });
