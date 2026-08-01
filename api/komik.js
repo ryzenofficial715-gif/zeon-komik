@@ -8,10 +8,6 @@ app.use(cors());
 app.use(express.json());
 
 app.use((req, res, next) => {
-    const ua = req.get('User-Agent') || '';
-    if (/curl|wget|python|scrapy|fetch|node|bot|crawler/i.test(ua) && !ua.includes('Mozilla')) {
-        return res.status(403).send('Akses ditolak');
-    }
     res.set({
         'Cache-Control': 'no-store, no-cache, must-revalidate',
         'Pragma': 'no-cache',
