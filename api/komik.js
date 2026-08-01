@@ -36,6 +36,7 @@ function cleanText(t) {
     return (t || '').replace(/komikindo|komik indo|baca komik|download komik/gi, '').replace(/\s+/g, ' ').trim();
 }
 
+// ========== HOME ==========
 app.get('/api/home', async (req, res) => {
     const c = getCache('home'); if (c) return res.json(c);
     try {
@@ -70,6 +71,7 @@ app.get('/api/home', async (req, res) => {
     } catch(e) { res.json({ success: false, error: e.message }); }
 });
 
+// ========== DETAIL ==========
 app.get('/api/detail', async (req, res) => {
     const { url } = req.query;
     if (!url) return res.json({ success: false });
@@ -95,6 +97,7 @@ app.get('/api/detail', async (req, res) => {
     } catch(e) { res.json({ success: false, error: e.message }); }
 });
 
+// ========== READ ==========
 app.get('/api/read', async (req, res) => {
     const { url } = req.query;
     if (!url) return res.json({ success: false });
@@ -105,51 +108,40 @@ app.get('/api/read', async (req, res) => {
         const $ = cheerio.load(data);
         const imgs = [];
 
-        // Target: semua domain eksternal tempat gambar
-        const imgDomains = [
-            'aicontentwow.lol', 'contentkerewnrorai.lat', 'gaimgame.pics',
-            'himmga.lat', 'imageainewgeneration.lol', 'indocontentaising.lol'
-        ];
-
-        // Hapus teks komikindo
-        $('*').each((i, el) => {
-            const txt = $(el).text();
-            if (/komikindo|komik indo/i.test(txt) && !$(el).is('img') && !$(el).is('input') && !$(el).is('a')) {
-                $(el).remove();
-            }
-        });
-
-        // Ambil SEMUA gambar
         $('img').each((i, el) => {
             const s = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy') || '';
             if (!s) return;
-            if (!/\.(jpg|png|webp|jpeg)/i.test(s)) return;
-            if (/avatar|icon|logo|fav/i.test(s)) return;
+            if (!/\.(jpg|png|webp|jpeg)/i.test(s) && !s.includes('blogger.googleusercontent.com')) return;
+            if (/fav|avatar|icon|logo|komikindo-e/i.test(s)) return;
+            if (s.includes('wp-content/uploads') && s.includes('komikindo')) return;
 
-            // Terima dari domain gambar atau dari wp-content/uploads
-            const isImageDomain = imgDomains.some(d => s.includes(d));
-            const isWpContent = s.includes('/wp-content/uploads/') && !s.includes('fav');
-            
-            if (isImageDomain || isWpContent) {
-                imgs.push(s.startsWith('http') ? s : 'https:' + s);
-            }
+            imgs.push(s.startsWith('http') ? s : 'https:' + s);
         });
-
-        // Fallback: kalau kosong, ambil semua yang ada /data/ di URL
-        if (imgs.length === 0) {
-            $('img').each((i, el) => {
-                const s = $(el).attr('src') || '';
-                if (s && /\/data\//.test(s) && /\.(jpg|png|webp)/i.test(s)) {
-                    imgs.push(s.startsWith('http') ? s : 'https:' + s);
-                }
-            });
-        }
 
         const r = { success: true, data: { title: cleanText($('.entry-title').text() || $('h1').first().text() || 'Chapter'), images: [...new Set(imgs)] } };
         setCache(ck, r); res.json(r);
     } catch(e) { res.json({ success: false, error: e.message }); }
 });
 
+// ========== SEARCH ==========
+app.get('/api/search', async (req, res) => {
+    const { q } = req.query;
+    if (!q) return res.json({ success: false });
+    const query = q.toLowerCase();
+    try {
+        const { data } = await axios.get(`${BASE}/?s=${encodeURIComponent(q)}`, { headers: { 'User-Agent': UA }, timeout: 15000 });
+        const $ = cheerio.load(data);
+        const list = [];
+        $('a[href*="/komik/"]').each((i, el) => {
+            const href = $(el).attr('href');
+            const title = ($(el).attr('title') || $(el).text()).toLowerCase();
+            if (href && title && title.includes(query)) list.push({ title: cleanText($(el).attr('title') || $(el).text()), url: href.startsWith('http') ? href : BASE + href });
+        });
+        res.json({ success: true, data: [...new Map(list.map(r => [r.url, r])).values()].slice(0, 30) });
+    } catch(e) { res.json({ success: false, error: e.message }); }
+});
+
+// ========== GENRES ==========
 app.get('/api/genres', async (req, res) => {
     const c = getCache('genres'); if (c) return res.json(c);
     try {
@@ -182,6 +174,7 @@ app.get('/api/genre', async (req, res) => {
     } catch(e) { res.json({ success: false, error: e.message }); }
 });
 
+// ========== BOOKMARK ==========
 const bookmarks = {};
 app.get('/api/bookmarks', (req, res) => {
     const { uid } = req.query;
@@ -202,6 +195,7 @@ app.post('/api/bookmarks/remove', (req, res) => {
     res.json({ success: true });
 });
 
+// ========== COMMENT & REACT ==========
 const comments = {};
 const reacts = {};
 const reactCounts = {};
