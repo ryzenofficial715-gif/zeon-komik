@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Baca — Zeon Komik</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -16,12 +16,12 @@
         .top-nav { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px; }
         .top-nav select { padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); font-family:'Poppins',sans-serif; font-size:0.75rem; max-width:200px; outline:none; }
         .top-nav select:focus { border-color:var(--accent2); }
-        .btn { padding:8px 14px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); cursor:pointer; font-weight:600; font-size:0.7rem; font-family:'Poppins',sans-serif; transition:all 0.2s; text-decoration:none; display:inline-block; }
+        .btn { padding:8px 14px; border-radius:8px; border:1px solid var(--border); background:var(--panel); color:var(--text); cursor:pointer; font-weight:600; font-size:0.7rem; font-family:'Poppins',sans-serif; transition:all 0.2s; text-decoration:none; display:inline-block; white-space:nowrap; }
         .btn:hover { background:var(--accent); color:white; border-color:var(--accent); }
         .btn.active { background:var(--accent2); color:var(--bg); border-color:var(--accent2); }
         .progress-bar { width:100%; height:3px; background:var(--border); position:fixed; top:0; left:0; z-index:101; }
         .progress-fill { height:100%; background:var(--accent2); width:0%; transition:width 0.2s; }
-        .images img { width:100%; display:block; border-radius:4px; margin-bottom:-4px; }
+        .images img { width:100%; max-width:100%; height:auto; display:block; border-radius:0; margin-bottom:0; object-fit:contain; }
         .loading { text-align:center; padding:40px; color:var(--dim); }
         .bottom-nav { position:fixed; bottom:0; left:0; right:0; background:rgba(0,10,30,0.95); backdrop-filter:blur(20px); border-top:1px solid var(--border); padding:10px 16px; display:flex; justify-content:space-between; align-items:center; gap:8px; z-index:100; }
         .bottom-nav .btn { flex:1; text-align:center; }
@@ -53,13 +53,13 @@
             <select id="chapterSelect" onchange="jumpChapter()"></select>
             <button class="btn" onclick="openChapterList()">📋 Daftar Chapter</button>
         </div>
-        <div id="content"></div>
+        <div class="images" id="content"></div>
         <div class="loading" id="loading">Loading...</div>
     </div>
 
     <div class="bottom-nav" id="bottomNav">
         <button class="btn" id="btnPrev" onclick="prevChapter()" disabled>⬅ Prev</button>
-        <span style="font-size:0.7rem;color:var(--dim)" id="chapterIndicator"></span>
+        <button class="btn" onclick="openChapterList()" style="flex:1.5">📋 Chapter</button>
         <button class="btn" id="btnNext" onclick="nextChapter()" disabled>Next ➡</button>
     </div>
 
@@ -80,7 +80,6 @@
         let allChapters = [];
         let currentIndex = -1;
 
-        // Progress bar
         window.addEventListener('scroll', () => {
             const scrollTop = window.scrollY;
             const docHeight = document.documentElement.scrollHeight - window.innerHeight;
@@ -123,7 +122,6 @@
             sel.innerHTML = allChapters.map((c, i) => 
                 `<option value="${i}" ${i === currentIndex ? 'selected' : ''}>${c.title}</option>`
             ).join('');
-            document.getElementById('chapterIndicator').textContent = `${currentIndex + 1} / ${allChapters.length}`;
         }
 
         function jumpChapter() {
