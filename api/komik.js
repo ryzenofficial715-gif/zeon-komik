@@ -101,9 +101,6 @@ app.get('/api/detail', async (req, res) => {
 app.get('/api/read', async (req, res) => {
     const { url } = req.query;
     if (!url) return res.json({ success: false });
-    const ck = 'read_' + encodeURIComponent(url);
-    // HAPUS CACHE — biar gak pakai data lama
-    delete cache[ck];
     try {
         const { data } = await axios.get(url, { headers: { 'User-Agent': UA }, timeout: 20000 });
         const $ = cheerio.load(data);
@@ -113,20 +110,18 @@ app.get('/api/read', async (req, res) => {
             const s = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy') || '';
             if (!s) return;
             
-            // Skip: favicon, logo, thumbnail kecil
+            // Skip junk
             if (s.includes('/fav.png') || s.includes('/favicon')) return;
             if (s.includes('komikindo-e1704648943874')) return;
-            if (s.includes('Komik-Eleceed-196x285')) return;
-            if (s.includes('wp-content/uploads') && s.match(/-\d+x\d+\.(jpg|png)$/)) return; // thumbnail
+            if (s.match(/-\d+x\d+\.(jpg|png)$/)) return; // thumbnail
             
-            // Terima: domain gambar + blogger
+            // Terima gambar komik
             if (s.includes('/data/') || s.includes('blogger.googleusercontent.com')) {
                 imgs.push(s.startsWith('http') ? s : 'https:' + s);
             }
         });
 
-        const r = { success: true, data: { title: cleanText($('.entry-title').text() || $('h1').first().text() || 'Chapter'), images: [...new Set(imgs)] } };
-        setCache(ck, r); res.json(r);
+        res.json({ success: true, data: { title: cleanText($('.entry-title').text() || $('h1').first().text() || 'Chapter'), images: [...new Set(imgs)] } });
     } catch(e) { res.json({ success: false, error: e.message }); }
 });
 
